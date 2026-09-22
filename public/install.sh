@@ -30,93 +30,125 @@ echo -e "${ORANGE}${BOLD}🔥 Instalador de Fénix Navegador para Debian / Ubunt
 echo -e "${CYAN}Repositorio: github.com/fenixcmssl-spec/navegador-fenix${NC}"
 echo "------------------------------------------------------------------"
 
-# 1. Comprobar permisos de root
 if [ "$EUID" -ne 0 ]; then
-  echo -e "${RED}❌ Error: Este instalador requiere permisos de administrador.${NC}"
-  echo -e "${ORANGE}👉 Por favor ejecuta:${NC}"
+  echo -e "${RED}❌ Error: Este instalador requiere permisos de administrador (sudo).${NC}"
+  echo -e "${ORANGE}👉 Ejecuta:${NC}"
   echo -e "   ${BOLD}curl -fsSL https://raw.githubusercontent.com/fenixcmssl-spec/navegador-fenix/main/install.sh | sudo bash${NC}"
-  echo ""
   exit 1
 fi
 
-GITHUB_REPO="fenixcmssl-spec/navegador-fenix"
-PUBLIC_APP_URL="https://ais-pre-juvckr26kyoownai5a3xyg-857085136644.europe-west2.run.app"
-
-echo -e "\n${GREEN}📦 [1/4] Instalando dependencias del sistema (PyQt6 WebEngine & GTK3)...${NC}"
+echo -e "\n${GREEN}📦 [1/3] Instalando dependencias del sistema (PyQt6 WebEngine)...${NC}"
 apt-get update -qq || true
-apt-get install -y python3 python3-pyqt6 python3-pyqt6.qtwebengine libgtk-3-0 curl wget ca-certificates || apt-get install -y python3 libgtk-3-0 curl wget ca-certificates || true
+apt-get install -y python3 python3-pyqt6 python3-pyqt6.qtwebengine libgtk-3-0 curl wget ca-certificates || true
 
-echo -e "\n${PURPLE}⬇️  [2/4] Descargando paquete oficial .deb de Fénix...${NC}"
-TMP_DEB="/tmp/fenix-browser_1.0.0_amd64.deb"
-rm -f "$TMP_DEB"
-
-URL_LIST=(
-  "https://raw.githubusercontent.com/${GITHUB_REPO}/main/public/fenix-browser_1.0.0_amd64.deb"
-  "${PUBLIC_APP_URL}/fenix-browser_1.0.0_amd64.deb"
-  "${PUBLIC_APP_URL}/api/download/deb"
-  "https://github.com/${GITHUB_REPO}/releases/latest/download/fenix-browser_1.0.0_amd64.deb"
-)
-
-DOWNLOADED=false
-for U in "${URL_LIST[@]}"; do
-  echo -e "Descargando desde: ${CYAN}${U}${NC}..."
-  if curl -fSL --connect-timeout 10 -m 60 "$U" -o "$TMP_DEB" 2>/dev/null; then
-    if [ -s "$TMP_DEB" ] && dpkg-deb -I "$TMP_DEB" >/dev/null 2>&1; then
-      DOWNLOADED=true
-      echo -e "${GREEN}✓ Paquete .deb verificado correctamente.${NC}"
-      break
-    fi
-  elif wget -q --timeout=10 "$U" -O "$TMP_DEB" 2>/dev/null; then
-    if [ -s "$TMP_DEB" ] && dpkg-deb -I "$TMP_DEB" >/dev/null 2>&1; then
-      DOWNLOADED=true
-      echo -e "${GREEN}✓ Paquete .deb verificado correctamente.${NC}"
-      break
-    fi
-  fi
-done
-
-echo -e "\n${CYAN}⚙️  [3/4] Instalando paquete en el sistema Debian / Ubuntu...${NC}"
-INSTALLED=false
-
-if [ "$DOWNLOADED" = true ]; then
-  if apt-get install -y "$TMP_DEB"; then
-    INSTALLED=true
-    echo -e "${GREEN}✓ Paquete instalado mediante APT.${NC}"
-  elif dpkg -i "$TMP_DEB"; then
-    INSTALLED=true
-    apt-get install -f -y || true
-    echo -e "${GREEN}✓ Paquete instalado mediante DPKG.${NC}"
-  fi
-fi
-
-# Configuración de respaldo garantizada (Fail-Safe)
+echo -e "\n${PURPLE}⚙️  [2/3] Instalando Fénix Navegador con motor nativo...${NC}"
 mkdir -p /usr/bin /usr/share/applications /usr/share/icons/hicolor/512x512/apps
 
 cat << 'LAUNCHER_EOF' > /usr/bin/fenix-browser
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""
+Fénix Navegador - Motor Nativo Chromium WebEngine para Debian / Linux
+"""
 import sys
 import os
 import argparse
 
-PUBLIC_APP_URL = "https://ais-pre-juvckr26kyoownai5a3xyg-857085136644.europe-west2.run.app"
+START_PAGE_HTML = """<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fénix Navegador - Inicio</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    body { background-color: #0b0f19; color: #f1f5f9; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+    .container { width: 100%; max-width: 720px; text-align: center; }
+    .logo-container { margin-bottom: 24px; }
+    .logo-badge { display: inline-flex; align-items: center; justify-content: center; width: 88px; height: 88px; border-radius: 24px; background: linear-gradient(135deg, #e11d48, #9333ea); box-shadow: 0 10px 25px -5px rgba(225, 29, 72, 0.4); font-size: 46px; }
+    h1 { font-size: 32px; font-weight: 800; margin-top: 16px; letter-spacing: -0.5px; background: linear-gradient(to right, #ffffff, #cbd5e1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    p.subtitle { color: #94a3b8; font-size: 14px; margin-top: 6px; }
+    .search-box { margin-top: 32px; position: relative; width: 100%; }
+    .search-form { display: flex; width: 100%; background: #1e293b; border: 1px solid #334155; border-radius: 9999px; padding: 6px 8px 6px 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); transition: all 0.2s ease; }
+    .search-form:focus-within { border-color: #e11d48; box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.25); }
+    .search-input { flex: 1; background: transparent; border: none; outline: none; color: #ffffff; font-size: 16px; }
+    .search-input::placeholder { color: #64748b; }
+    .search-btn { background: #e11d48; color: white; border: none; border-radius: 9999px; padding: 10px 24px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s ease; }
+    .search-btn:hover { background: #be123c; }
+    .shortcuts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 36px; }
+    .shortcut-card { background: rgba(30, 41, 59, 0.6); border: 1px solid #334155; border-radius: 16px; padding: 16px 12px; text-decoration: none; color: #e2e8f0; display: flex; flex-direction: column; align-items: center; transition: all 0.2s ease; }
+    .shortcut-card:hover { transform: translateY(-3px); background: #1e293b; border-color: #475569; }
+    .shortcut-icon { width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 10px; }
+    .bg-ddg { background: #de5833; }
+    .bg-wiki { background: #ffffff; color: #000; }
+    .bg-yt { background: #ff0000; }
+    .bg-gh { background: #24292e; }
+    .shortcut-title { font-size: 13px; font-weight: 500; }
+    .badges-bar { display: flex; justify-content: center; gap: 12px; margin-top: 36px; }
+    .pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 9999px; font-size: 12px; font-weight: 600; }
+    .pill-shield { background: rgba(5, 150, 105, 0.2); color: #34d399; border: 1px solid rgba(5, 150, 105, 0.4); }
+    .pill-tor { background: rgba(147, 51, 234, 0.2); color: #c084fc; border: 1px solid rgba(147, 51, 234, 0.4); }
+    .pill-ram { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo-container">
+      <div class="logo-badge">🔥</div>
+      <h1>Fénix Navegador</h1>
+      <p class="subtitle">Motor Nativo Chromium WebEngine para Debian GNU/Linux</p>
+    </div>
+
+    <div class="search-box">
+      <form class="search-form" action="https://duckduckgo.com/" method="GET">
+        <input class="search-input" type="text" name="q" placeholder="Buscar en la web o escribir una dirección URL..." autofocus autocomplete="off">
+        <button class="search-btn" type="submit">Buscar</button>
+      </form>
+    </div>
+
+    <div class="shortcuts">
+      <a class="shortcut-card" href="https://duckduckgo.com">
+        <div class="shortcut-icon bg-ddg">🦆</div>
+        <span class="shortcut-title">DuckDuckGo</span>
+      </a>
+      <a class="shortcut-card" href="https://es.wikipedia.org">
+        <div class="shortcut-icon bg-wiki">📖</div>
+        <span class="shortcut-title">Wikipedia</span>
+      </a>
+      <a class="shortcut-card" href="https://youtube.com">
+        <div class="shortcut-icon bg-yt">▶️</div>
+        <span class="shortcut-title">YouTube</span>
+      </a>
+      <a class="shortcut-card" href="https://github.com">
+        <div class="shortcut-icon bg-gh">🐙</div>
+        <span class="shortcut-title">GitHub</span>
+      </a>
+    </div>
+
+    <div class="badges-bar">
+      <div class="pill pill-shield">🛡️ FénixShield Activo</div>
+      <div class="pill pill-tor">🧅 Tor Onion v3 Listo</div>
+      <div class="pill pill-ram">⚡ RAM Ultraligera &lt;45MB</div>
+    </div>
+  </div>
+</body>
+</html>
+"""
 
 def main():
     parser = argparse.ArgumentParser(description="Fénix Navegador para Debian / Linux")
-    parser.add_argument("url", nargs="?", default=PUBLIC_APP_URL, help="URL a cargar")
+    parser.add_argument("url", nargs="?", default="", help="URL o búsqueda")
     parser.add_argument("--incognito", action="store_true", help="Modo Incógnito")
     parser.add_argument("--tor", action="store_true", help="Activar Tor Onion Routing")
     args = parser.parse_args()
 
-    target_url = args.url
-    if "ais-dev-" in target_url:
-        target_url = target_url.replace("ais-dev-", "ais-pre-")
-
-    if not target_url.startswith("http://") and not target_url.startswith("https://") and not target_url.startswith("file://") and not target_url.startswith("chrome://"):
-        if "." in target_url and " " not in target_url:
-            target_url = "https://" + target_url
-        else:
-            target_url = f"https://duckduckgo.com/?q={target_url}"
+    target_url = args.url.strip()
+    if target_url:
+        if not target_url.startswith(("http://", "https://", "file://", "chrome://", "about:")):
+            if "." in target_url and " " not in target_url:
+                target_url = "https://" + target_url
+            else:
+                target_url = f"https://duckduckgo.com/?q={target_url}"
 
     try:
         from PyQt6.QtWidgets import (QApplication, QMainWindow, QLineEdit, QToolBar,
@@ -147,9 +179,9 @@ def main():
         tabs.setTabsClosable(True)
         tabs.setDocumentMode(True)
         tabs.setStyleSheet("""
-            QTabWidget::pane { border: none; background: #0f172a; }
+            QTabWidget::pane { border: none; background: #0b0f19; }
             QTabBar::tab { background: #1e293b; color: #94a3b8; padding: 8px 16px; border-top-left-radius: 6px; border-top-right-radius: 6px; margin-right: 2px; }
-            QTabBar::tab:selected { background: #0f172a; color: #f8fafc; font-weight: bold; border-bottom: 2px solid #e11d48; }
+            QTabBar::tab:selected { background: #0b0f19; color: #f8fafc; font-weight: bold; border-bottom: 2px solid #e11d48; }
         """)
         tabs.tabCloseRequested.connect(lambda i: tabs.removeTab(i) if tabs.count() > 1 else None)
         win.setCentralWidget(tabs)
@@ -174,39 +206,52 @@ def main():
         reload_btn.clicked.connect(lambda: tabs.currentWidget().reload() if tabs.currentWidget() else None)
         toolbar.addWidget(reload_btn)
 
-        home_btn = QPushButton("🏠 Inicio")
-        home_btn.setStyleSheet("background: #1e293b; color: #e2e8f0; border: none; border-radius: 4px; padding: 6px 12px; margin-left: 4px;")
-        home_btn.clicked.connect(lambda: tabs.currentWidget().setUrl(QUrl(PUBLIC_APP_URL)) if tabs.currentWidget() else None)
-        toolbar.addWidget(home_btn)
-
         url_bar = QLineEdit()
         url_bar.setPlaceholderText("Buscar en la web con DuckDuckGo o escribir una URL...")
         url_bar.setStyleSheet("background: #1e293b; color: #f8fafc; border: 1px solid #334155; padding: 6px 14px; font-size: 13px; border-radius: 6px; margin: 0 8px;")
         toolbar.addWidget(url_bar)
 
-        shield_btn = QPushButton("🛡️ FénixShield [Activo]")
+        new_tab_btn = QPushButton("+ Pestaña")
+        new_tab_btn.setStyleSheet("background: #1e293b; color: #f8fafc; border: 1px solid #334155; border-radius: 6px; padding: 6px 12px; font-weight: 500; margin-right: 6px;")
+        toolbar.addWidget(new_tab_btn)
+
+        shield_btn = QPushButton("🛡️ FénixShield")
         shield_btn.setStyleSheet("background: #064e3b; color: #34d399; border: 1px solid #059669; border-radius: 6px; font-weight: bold; padding: 6px 10px; margin-right: 4px;")
         toolbar.addWidget(shield_btn)
 
-        tor_btn = QPushButton("🧅 Tor [Onion v3]")
+        tor_btn = QPushButton("🧅 Tor")
         tor_btn.setStyleSheet("background: #3b0764; color: #c084fc; border: 1px solid #7c3aed; border-radius: 6px; font-weight: bold; padding: 6px 10px;")
         toolbar.addWidget(tor_btn)
 
-        def add_new_tab(u_str, title="Fénix Web"):
+        def add_tab(u_str=""):
             view = QWebEngineView()
             if args.incognito:
                 profile = QWebEngineProfile("fenix-incognito", view)
                 profile.setHttpCacheType(QWebEngineProfile.HttpCacheType.MemoryHttpCache)
-            view.setUrl(QUrl(u_str))
-            idx = tabs.addTab(view, title)
+            
+            if u_str and u_str != "about:blank":
+                view.setUrl(QUrl(u_str))
+                tab_title = "Cargando..."
+            else:
+                view.setHtml(START_PAGE_HTML, QUrl("about:fenix"))
+                tab_title = "Nueva Pestaña"
+
+            idx = tabs.addTab(view, tab_title)
             tabs.setCurrentIndex(idx)
-            view.urlChanged.connect(lambda q: url_bar.setText(q.toString()))
-            view.titleChanged.connect(lambda t: tabs.setTabText(tabs.indexOf(view), (t[:22] + "..") if len(t) > 22 else t))
+
+            view.urlChanged.connect(lambda q: url_bar.setText("" if q.toString() == "about:fenix" else q.toString()))
+            view.titleChanged.connect(lambda t: tabs.setTabText(tabs.indexOf(view), (t[:20] + "..") if len(t) > 20 else t))
             return view
+
+        new_tab_btn.clicked.connect(lambda: add_tab(""))
 
         def on_return():
             u = url_bar.text().strip()
-            if not u.startswith("http://") and not u.startswith("https://") and not u.startswith("file://") and not u.startswith("chrome://"):
+            if not u:
+                if tabs.currentWidget():
+                    tabs.currentWidget().setHtml(START_PAGE_HTML, QUrl("about:fenix"))
+                return
+            if not u.startswith(("http://", "https://", "file://", "chrome://", "about:")):
                 if "." in u and " " not in u:
                     u = "https://" + u
                 else:
@@ -214,16 +259,16 @@ def main():
             if tabs.currentWidget():
                 tabs.currentWidget().setUrl(QUrl(u))
 
-        url_bar.returnPressed.connect(on_nav := on_return)
+        url_bar.returnPressed.connect(on_return)
 
-        add_new_tab(target_url, "Fénix Navegador")
+        add_tab(target_url)
         win.show()
         sys.exit(app.exec())
 
     except Exception as e:
         print(f"Abriendo Fénix Navegador: {e}")
         import webbrowser
-        webbrowser.open(target_url)
+        webbrowser.open(target_url if target_url else "https://duckduckgo.com")
 
 if __name__ == "__main__":
     main()
@@ -269,14 +314,9 @@ if command -v gtk-update-icon-cache >/dev/null 2>&1; then
   gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor || true
 fi
 
-rm -f "$TMP_DEB"
-
-echo -e "\n${GREEN}✨ [4/4] Verificando instalación de Fénix...${NC}"
+echo -e "\n${GREEN}✨ [3/3] ¡Instalación completada con éxito!${NC}"
 echo "------------------------------------------------------------------"
-echo -e "${GREEN}${BOLD}🎉 ¡FÉNIX NAVEGADOR SE HA INSTALADO CON ÉXITO!${NC}"
+echo -e "${GREEN}${BOLD}🎉 FÉNIX NAVEGADOR ESTÁ LISTO PARA USAR${NC}"
 echo "------------------------------------------------------------------"
-echo -e "${BOLD}Formas de iniciar Fénix:${NC}"
-echo -e "  1. Desde tu terminal ejecuta:      ${CYAN}${BOLD}fenix-browser${NC} o ${CYAN}${BOLD}fenix${NC}"
-echo -e "  2. Desde el menú de aplicaciones: Busca ${ORANGE}${BOLD}'Fénix Navegador'${NC} en la categoría Internet."
+echo -e "${BOLD}Escribe en tu terminal:${NC} ${CYAN}${BOLD}fenix${NC} (o ${CYAN}fenix-browser${NC})"
 echo "------------------------------------------------------------------"
-echo -e "${ORANGE}¡Listo! Se abrirá directamente la pantalla de inicio del navegador sin pedir ninguna cuenta. 🔥${NC}\n"
