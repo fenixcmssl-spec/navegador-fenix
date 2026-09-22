@@ -28,10 +28,10 @@ export default function DebianSetupPage({ onTriggerDownloadDeb }: DebianSetupPag
     if (typeof window !== 'undefined') {
       return window.location.origin;
     }
-    return 'https://ais-dev-juvckr26kyoownai5a3xyg-857085136644.europe-west2.run.app';
+    return 'https://ais-pre-juvckr26kyoownai5a3xyg-857085136644.europe-west2.run.app';
   });
 
-  const [githubRepo, setGithubRepo] = useState('sindacatoobsidiana/fenix-browser');
+  const [githubRepo, setGithubRepo] = useState('fenixcmssl-spec/navegador-fenix');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [activeInstallTab, setActiveInstallTab] = useState<'curl' | 'dpkg' | 'gui' | 'github_source' | 'apt'>('curl');
   
@@ -47,7 +47,7 @@ export default function DebianSetupPage({ onTriggerDownloadDeb }: DebianSetupPag
   };
 
   // GitHub-powered commands
-  const cleanRepo = githubRepo.trim() || 'sindacatoobsidiana/fenix-browser';
+  const cleanRepo = githubRepo.trim() || 'fenixcmssl-spec/navegador-fenix';
   const curlGithubCommand = `curl -fsSL https://raw.githubusercontent.com/${cleanRepo}/main/install.sh | sudo bash`;
 
   const dpkgGithubCommand = `# 1. Descargar paquete compilado oficial .deb desde tu GitHub
