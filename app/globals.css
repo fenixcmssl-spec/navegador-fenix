@@ -1,0 +1,35 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Browser UI custom scrollbars and utility styles */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(150, 150, 150, 0.35);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(150, 150, 150, 0.6);
+}
+
+/* Chrome tab curve shape simulation */
+.chrome-tab {
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.chrome-tab-active {
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.06);
+}
+
+/* Clean monospaced code formatting for devtools & terminal */
+.font-mono-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}

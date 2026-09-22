@@ -1,0 +1,6 @@
+{
+  "name": "Fénix Navegador - Navegador Ultraligero para Debian Linux",
+  "description": "Navegador ultraligero estilo Google Chrome optimizado para Debian Linux con pestañas, omnibox inteligente, bloqueador de anuncios FénixShield, modo lectura, descargas, historial y herramientas para desarrolladores.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
