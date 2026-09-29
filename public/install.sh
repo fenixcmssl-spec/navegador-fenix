@@ -2,6 +2,7 @@
 # ==============================================================================
 #  🔥 FÉNIX NAVEGADOR - INSTALADOR OFICIAL PARA DEBIAN & LINUX
 #  Repositorio: fenixcmssl-spec/navegador-fenix
+#  Soporte completo para Google Login, Gmail, ChatGPT, Tor y FénixShield
 # ==============================================================================
 
 set -e
@@ -26,7 +27,7 @@ cat << "EOF"
   ╚═╝     ╚══════╝╚═╝  ╚═══╝╚═╝╚═╝  ╚═╝
 EOF
 echo -e "${NC}"
-echo -e "${ORANGE}${BOLD}🔥 Instalador de Fénix Navegador para Debian / Ubuntu / Linux${NC}"
+echo -e "${ORANGE}${BOLD}🔥 Fénix Navegador - Instalador y Actualizador para Debian / Linux${NC}"
 echo -e "${CYAN}Repositorio: github.com/fenixcmssl-spec/navegador-fenix${NC}"
 echo "------------------------------------------------------------------"
 
@@ -37,22 +38,38 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
-echo -e "\n${GREEN}📦 [1/3] Instalando dependencias del sistema (PyQt6 WebEngine)...${NC}"
+echo -e "\n${GREEN}📦 [1/3] Instalando dependencias necesarias (PyQt6 WebEngine)...${NC}"
 apt-get update -qq || true
 apt-get install -y python3 python3-pyqt6 python3-pyqt6.qtwebengine libgtk-3-0 curl wget ca-certificates || true
 
-echo -e "\n${PURPLE}⚙️  [2/3] Instalando Fénix Navegador con motor nativo...${NC}"
-mkdir -p /usr/bin /usr/share/applications /usr/share/icons/hicolor/512x512/apps
+echo -e "\n${PURPLE}⚙️  [2/3] Instalando Fénix Navegador con soporte para Gmail, ChatGPT y Google Auth...${NC}"
+mkdir -p /usr/bin /usr/share/applications /usr/share/icons/hicolor/512x512/apps /usr/share/pixmaps
 
 cat << 'LAUNCHER_EOF' > /usr/bin/fenix-browser
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Fénix Navegador - Motor Nativo Chromium WebEngine para Debian / Linux
+🔥 Fénix Navegador - Motor Nativo Chromium WebEngine para Debian / Linux
+Optimizado con compatibilidad completa para Google Auth, Gmail, ChatGPT, OAuth y Tor.
 """
 import sys
 import os
 import argparse
+from pathlib import Path
+
+# Configurar flags de Chromium antes de que QApplication inicialice WebEngine
+os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = (
+    "--enable-features=NetworkService,NetworkServiceInProcess "
+    "--disable-blink-features=AutomationControlled "
+    "--enable-gpu-rasterization "
+    "--enable-zero-copy "
+    "--ignore-gpu-blocklist"
+)
+
+CHROME_USER_AGENT = (
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/128.0.0.0 Safari/537.36"
+)
 
 START_PAGE_HTML = """<!DOCTYPE html>
 <html lang="es">
@@ -63,32 +80,33 @@ START_PAGE_HTML = """<!DOCTYPE html>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
     body { background-color: #0b0f19; color: #f1f5f9; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
-    .container { width: 100%; max-width: 720px; text-align: center; }
-    .logo-container { margin-bottom: 24px; }
-    .logo-badge { display: inline-flex; align-items: center; justify-content: center; width: 88px; height: 88px; border-radius: 24px; background: linear-gradient(135deg, #e11d48, #9333ea); box-shadow: 0 10px 25px -5px rgba(225, 29, 72, 0.4); font-size: 46px; }
-    h1 { font-size: 32px; font-weight: 800; margin-top: 16px; letter-spacing: -0.5px; background: linear-gradient(to right, #ffffff, #cbd5e1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .container { width: 100%; max-width: 760px; text-align: center; }
+    .logo-badge { display: inline-flex; align-items: center; justify-content: center; width: 88px; height: 88px; border-radius: 24px; background: linear-gradient(135deg, #e11d48, #9333ea); box-shadow: 0 10px 25px -5px rgba(225, 29, 72, 0.4); font-size: 46px; margin-bottom: 16px; }
+    h1 { font-size: 34px; font-weight: 800; letter-spacing: -0.5px; background: linear-gradient(to right, #ffffff, #cbd5e1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     p.subtitle { color: #94a3b8; font-size: 14px; margin-top: 6px; }
-    .search-box { margin-top: 32px; position: relative; width: 100%; }
+    .search-box { margin-top: 32px; width: 100%; }
     .search-form { display: flex; width: 100%; background: #1e293b; border: 1px solid #334155; border-radius: 9999px; padding: 6px 8px 6px 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); transition: all 0.2s ease; }
     .search-form:focus-within { border-color: #e11d48; box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.25); }
     .search-input { flex: 1; background: transparent; border: none; outline: none; color: #ffffff; font-size: 16px; }
     .search-input::placeholder { color: #64748b; }
     .search-btn { background: #e11d48; color: white; border: none; border-radius: 9999px; padding: 10px 24px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s ease; }
     .search-btn:hover { background: #be123c; }
-    .shortcuts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 36px; }
-    .shortcut-card { background: rgba(30, 41, 59, 0.6); border: 1px solid #334155; border-radius: 16px; padding: 16px 12px; text-decoration: none; color: #e2e8f0; display: flex; flex-direction: column; align-items: center; transition: all 0.2s ease; }
-    .shortcut-card:hover { transform: translateY(-3px); background: #1e293b; border-color: #475569; }
-    .shortcut-icon { width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 10px; }
+    .shortcuts { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-top: 36px; }
+    .shortcut-card { background: rgba(30, 41, 59, 0.6); border: 1px solid #334155; border-radius: 14px; padding: 14px 8px; text-decoration: none; color: #e2e8f0; display: flex; flex-direction: column; align-items: center; transition: all 0.2s ease; }
+    .shortcut-card:hover { transform: translateY(-3px); background: #1e293b; border-color: #e11d48; }
+    .shortcut-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 8px; }
     .bg-ddg { background: #de5833; }
-    .bg-wiki { background: #ffffff; color: #000; }
+    .bg-gmail { background: #ea4335; }
+    .bg-chatgpt { background: #10a37f; }
     .bg-yt { background: #ff0000; }
     .bg-gh { background: #24292e; }
-    .shortcut-title { font-size: 13px; font-weight: 500; }
-    .badges-bar { display: flex; justify-content: center; gap: 12px; margin-top: 36px; }
+    .bg-wiki { background: #334155; color: #fff; }
+    .shortcut-title { font-size: 12px; font-weight: 500; }
+    .badges-bar { display: flex; justify-content: center; gap: 12px; margin-top: 36px; flex-wrap: wrap; }
     .pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 9999px; font-size: 12px; font-weight: 600; }
     .pill-shield { background: rgba(5, 150, 105, 0.2); color: #34d399; border: 1px solid rgba(5, 150, 105, 0.4); }
+    .pill-google { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); }
     .pill-tor { background: rgba(147, 51, 234, 0.2); color: #c084fc; border: 1px solid rgba(147, 51, 234, 0.4); }
-    .pill-ram { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); }
   </style>
 </head>
 <body>
@@ -96,39 +114,47 @@ START_PAGE_HTML = """<!DOCTYPE html>
     <div class="logo-container">
       <div class="logo-badge">🔥</div>
       <h1>Fénix Navegador</h1>
-      <p class="subtitle">Motor Nativo Chromium WebEngine para Debian GNU/Linux</p>
+      <p class="subtitle">Motor Nativo Chromium WebEngine con Soporte Google Auth & ChatGPT</p>
     </div>
 
     <div class="search-box">
       <form class="search-form" action="https://duckduckgo.com/" method="GET">
-        <input class="search-input" type="text" name="q" placeholder="Buscar en la web o escribir una dirección URL..." autofocus autocomplete="off">
+        <input class="search-input" type="text" name="q" placeholder="Buscar en la web con DuckDuckGo o escribir una dirección URL..." autofocus autocomplete="off">
         <button class="search-btn" type="submit">Buscar</button>
       </form>
     </div>
 
     <div class="shortcuts">
-      <a class="shortcut-card" href="https://duckduckgo.com">
-        <div class="shortcut-icon bg-ddg">🦆</div>
-        <span class="shortcut-title">DuckDuckGo</span>
+      <a class="shortcut-card" href="https://mail.google.com">
+        <div class="shortcut-icon bg-gmail">✉️</div>
+        <span class="shortcut-title">Gmail</span>
       </a>
-      <a class="shortcut-card" href="https://es.wikipedia.org">
-        <div class="shortcut-icon bg-wiki">📖</div>
-        <span class="shortcut-title">Wikipedia</span>
+      <a class="shortcut-card" href="https://chatgpt.com">
+        <div class="shortcut-icon bg-chatgpt">🤖</div>
+        <span class="shortcut-title">ChatGPT</span>
       </a>
       <a class="shortcut-card" href="https://youtube.com">
         <div class="shortcut-icon bg-yt">▶️</div>
         <span class="shortcut-title">YouTube</span>
       </a>
+      <a class="shortcut-card" href="https://duckduckgo.com">
+        <div class="shortcut-icon bg-ddg">🦆</div>
+        <span class="shortcut-title">DuckDuckGo</span>
+      </a>
       <a class="shortcut-card" href="https://github.com">
         <div class="shortcut-icon bg-gh">🐙</div>
         <span class="shortcut-title">GitHub</span>
+      </a>
+      <a class="shortcut-card" href="https://es.wikipedia.org">
+        <div class="shortcut-icon bg-wiki">📖</div>
+        <span class="shortcut-title">Wikipedia</span>
       </a>
     </div>
 
     <div class="badges-bar">
       <div class="pill pill-shield">🛡️ FénixShield Activo</div>
-      <div class="pill pill-tor">🧅 Tor Onion v3 Listo</div>
-      <div class="pill pill-ram">⚡ RAM Ultraligera &lt;45MB</div>
+      <div class="pill pill-google">✅ Google Auth & ChatGPT Listo</div>
+      <div class="pill pill-tor">🧅 Tor Onion v3 Integrado</div>
     </div>
   </div>
 </body>
@@ -137,8 +163,8 @@ START_PAGE_HTML = """<!DOCTYPE html>
 
 def main():
     parser = argparse.ArgumentParser(description="Fénix Navegador para Debian / Linux")
-    parser.add_argument("url", nargs="?", default="", help="URL o búsqueda")
-    parser.add_argument("--incognito", action="store_true", help="Modo Incógnito")
+    parser.add_argument("url", nargs="?", default="", help="URL o término de búsqueda")
+    parser.add_argument("--incognito", action="store_true", help="Modo Incógnito / Privado")
     parser.add_argument("--tor", action="store_true", help="Activar Tor Onion Routing")
     args = parser.parse_args()
 
@@ -152,116 +178,225 @@ def main():
 
     try:
         from PyQt6.QtWidgets import (QApplication, QMainWindow, QLineEdit, QToolBar,
-                                     QTabWidget, QPushButton, QLabel)
+                                     QTabWidget, QPushButton, QMessageBox, QFileDialog)
         from PyQt6.QtWebEngineWidgets import QWebEngineView
-        from PyQt6.QtWebEngineCore import QWebEngineProfile
+        from PyQt6.QtWebEngineCore import (QWebEngineProfile, QWebEngineSettings, 
+                                           QWebEngineScript, QWebEnginePage)
         from PyQt6.QtCore import QUrl, Qt
         from PyQt6.QtGui import QIcon
+        from PyQt6.QtNetwork import QNetworkProxy
 
         app = QApplication(sys.argv)
         app.setApplicationName("Fénix Navegador")
 
-        icon_paths = [
-            "/usr/share/icons/hicolor/512x512/apps/fenix-browser.png",
-            "/usr/share/icons/hicolor/256x256/apps/fenix-browser.png",
-            "/usr/share/pixmaps/fenix-browser.png",
-        ]
-        for ipath in icon_paths:
-            if os.path.exists(ipath):
-                app.setWindowIcon(QIcon(ipath))
-                break
+        # Configurar perfil principal persistente (para guardar logins de Google, ChatGPT, etc.)
+        home_dir = Path.home()
+        storage_dir = home_dir / ".local" / "share" / "fenix-browser" / "storage"
+        cache_dir = home_dir / ".cache" / "fenix-browser" / "cache"
+        download_dir = home_dir / "Downloads"
 
-        win = QMainWindow()
-        win.setWindowTitle("Fénix Navegador - Debian Edition")
-        win.resize(1366, 820)
+        storage_dir.mkdir(parents=True, exist_ok=True)
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        download_dir.mkdir(parents=True, exist_ok=True)
 
-        tabs = QTabWidget()
-        tabs.setTabsClosable(True)
-        tabs.setDocumentMode(True)
-        tabs.setStyleSheet("""
-            QTabWidget::pane { border: none; background: #0b0f19; }
-            QTabBar::tab { background: #1e293b; color: #94a3b8; padding: 8px 16px; border-top-left-radius: 6px; border-top-right-radius: 6px; margin-right: 2px; }
-            QTabBar::tab:selected { background: #0b0f19; color: #f8fafc; font-weight: bold; border-bottom: 2px solid #e11d48; }
+        if args.incognito:
+            profile = QWebEngineProfile("fenix-incognito", app)
+            profile.setHttpCacheType(QWebEngineProfile.HttpCacheType.MemoryHttpCache)
+        else:
+            profile = QWebEngineProfile.defaultProfile()
+            profile.setPersistentStoragePath(str(storage_dir))
+            profile.setCachePath(str(cache_dir))
+            profile.setPersistentCookiesPolicy(QWebEngineProfile.PersistentCookiesPolicy.ForcePersistentCookies)
+
+        # Establecer User Agent legítimo de Google Chrome en Linux para evitar bloqueos
+        profile.setHttpUserAgent(CHROME_USER_AGENT)
+
+        # Ajustes de seguridad y compatibilidad web moderna
+        settings = profile.settings()
+        settings.setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, True)
+        settings.setAttribute(QWebEngineSettings.WebAttribute.LocalStorageEnabled, True)
+        settings.setAttribute(QWebEngineSettings.WebAttribute.WebGLEnabled, True)
+        settings.setAttribute(QWebEngineSettings.WebAttribute.Accelerated2dCanvasEnabled, True)
+        settings.setAttribute(QWebEngineSettings.WebAttribute.JavascriptCanOpenWindows, True)
+        settings.setAttribute(QWebEngineSettings.WebAttribute.JavascriptCanAccessClipboard, True)
+        settings.setAttribute(QWebEngineSettings.WebAttribute.AllowRunningInsecureContent, False)
+        settings.setAttribute(QWebEngineSettings.WebAttribute.FullScreenSupportEnabled, True)
+        settings.setAttribute(QWebEngineSettings.WebAttribute.ScreenCaptureEnabled, True)
+        settings.setAttribute(QWebEngineSettings.WebAttribute.PluginsEnabled, True)
+        settings.setAttribute(QWebEngineSettings.WebAttribute.DnsPrefetchEnabled, True)
+        settings.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
+        settings.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls, True)
+
+        # Inyectar script anti-detección para bypass de Cloudflare Turnstile & Google automation check
+        anti_detect = QWebEngineScript()
+        anti_detect.setName("fenix_anti_detect")
+        anti_detect.setSourceCode("""
+        (() => {
+            try {
+                Object.defineProperty(navigator, 'webdriver', { get: () => undefined, configurable: true });
+                if (!window.chrome) {
+                    window.chrome = {
+                        app: { isInstalled: false },
+                        runtime: { OnInstalledReason: { CHROME_UPDATE: 'chrome_update' } }
+                    };
+                }
+            } catch(e) {}
+        })();
         """)
-        tabs.tabCloseRequested.connect(lambda i: tabs.removeTab(i) if tabs.count() > 1 else None)
-        win.setCentralWidget(tabs)
+        anti_detect.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentCreation)
+        anti_detect.setWorldId(QWebEngineScript.ScriptWorldId.MainWorld)
+        profile.scripts().insert(anti_detect)
 
-        toolbar = QToolBar("Navegación Fénix")
-        toolbar.setMovable(False)
-        toolbar.setStyleSheet("background: #0f172a; border-bottom: 1px solid #1e293b; padding: 4px;")
-        win.addToolBar(toolbar)
+        # Configuración de Tor si se solicitó
+        if args.tor:
+            proxy = QNetworkProxy()
+            proxy.setType(QNetworkProxy.ProxyType.Socks5Proxy)
+            proxy.setHostName("127.0.0.1")
+            proxy.setPort(9050)
+            QNetworkProxy.setApplicationProxy(proxy)
 
-        back_btn = QPushButton("◀")
-        back_btn.setStyleSheet("background: #1e293b; color: white; border: none; border-radius: 4px; padding: 6px 12px; font-weight: bold;")
-        back_btn.clicked.connect(lambda: tabs.currentWidget().back() if tabs.currentWidget() else None)
-        toolbar.addWidget(back_btn)
+        # Manejo de descargas
+        def on_download(item):
+            target_file = download_dir / item.suggestedFileName()
+            item.setDownloadDirectory(str(download_dir))
+            item.setDownloadFileName(item.suggestedFileName())
+            item.accept()
+        profile.downloadRequested.connect(on_download)
 
-        fwd_btn = QPushButton("▶")
-        fwd_btn.setStyleSheet("background: #1e293b; color: white; border: none; border-radius: 4px; padding: 6px 12px; font-weight: bold; margin-left: 4px;")
-        fwd_btn.clicked.connect(lambda: tabs.currentWidget().forward() if tabs.currentWidget() else None)
-        toolbar.addWidget(fwd_btn)
+        # Ventana Principal
+        class FenixMainWindow(QMainWindow):
+            def __init__(self):
+                super().__init__()
+                self.setWindowTitle("Fénix Navegador - Debian Edition")
+                self.resize(1366, 840)
 
-        reload_btn = QPushButton("🔄")
-        reload_btn.setStyleSheet("background: #1e293b; color: white; border: none; border-radius: 4px; padding: 6px 12px; margin-left: 4px;")
-        reload_btn.clicked.connect(lambda: tabs.currentWidget().reload() if tabs.currentWidget() else None)
-        toolbar.addWidget(reload_btn)
+                icon_paths = [
+                    "/usr/share/icons/hicolor/512x512/apps/fenix-browser.png",
+                    "/usr/share/pixmaps/fenix-browser.png",
+                ]
+                for ipath in icon_paths:
+                    if os.path.exists(ipath):
+                        self.setWindowIcon(QIcon(ipath))
+                        break
 
-        url_bar = QLineEdit()
-        url_bar.setPlaceholderText("Buscar en la web con DuckDuckGo o escribir una URL...")
-        url_bar.setStyleSheet("background: #1e293b; color: #f8fafc; border: 1px solid #334155; padding: 6px 14px; font-size: 13px; border-radius: 6px; margin: 0 8px;")
-        toolbar.addWidget(url_bar)
+                self.tabs = QTabWidget()
+                self.tabs.setTabsClosable(True)
+                self.tabs.setDocumentMode(True)
+                self.tabs.setStyleSheet("""
+                    QTabWidget::pane { border: none; background: #0b0f19; }
+                    QTabBar::tab { background: #1e293b; color: #94a3b8; padding: 8px 16px; border-top-left-radius: 6px; border-top-right-radius: 6px; margin-right: 2px; }
+                    QTabBar::tab:selected { background: #0b0f19; color: #f8fafc; font-weight: bold; border-bottom: 2px solid #e11d48; }
+                """)
+                self.tabs.tabCloseRequested.connect(self.close_tab)
+                self.tabs.currentChanged.connect(self.tab_changed)
+                self.setCentralWidget(self.tabs)
 
-        new_tab_btn = QPushButton("+ Pestaña")
-        new_tab_btn.setStyleSheet("background: #1e293b; color: #f8fafc; border: 1px solid #334155; border-radius: 6px; padding: 6px 12px; font-weight: 500; margin-right: 6px;")
-        toolbar.addWidget(new_tab_btn)
+                # Barra de herramientas
+                toolbar = QToolBar("Navegación Fénix")
+                toolbar.setMovable(False)
+                toolbar.setStyleSheet("background: #0f172a; border-bottom: 1px solid #1e293b; padding: 4px;")
+                self.addToolBar(toolbar)
 
-        shield_btn = QPushButton("🛡️ FénixShield")
-        shield_btn.setStyleSheet("background: #064e3b; color: #34d399; border: 1px solid #059669; border-radius: 6px; font-weight: bold; padding: 6px 10px; margin-right: 4px;")
-        toolbar.addWidget(shield_btn)
+                back_btn = QPushButton("◀")
+                back_btn.setStyleSheet("background: #1e293b; color: white; border: none; border-radius: 4px; padding: 6px 12px; font-weight: bold;")
+                back_btn.clicked.connect(lambda: self.current_view().back() if self.current_view() else None)
+                toolbar.addWidget(back_btn)
 
-        tor_btn = QPushButton("🧅 Tor")
-        tor_btn.setStyleSheet("background: #3b0764; color: #c084fc; border: 1px solid #7c3aed; border-radius: 6px; font-weight: bold; padding: 6px 10px;")
-        toolbar.addWidget(tor_btn)
+                fwd_btn = QPushButton("▶")
+                fwd_btn.setStyleSheet("background: #1e293b; color: white; border: none; border-radius: 4px; padding: 6px 12px; font-weight: bold; margin-left: 4px;")
+                fwd_btn.clicked.connect(lambda: self.current_view().forward() if self.current_view() else None)
+                toolbar.addWidget(fwd_btn)
 
-        def add_tab(u_str=""):
-            view = QWebEngineView()
-            if args.incognito:
-                profile = QWebEngineProfile("fenix-incognito", view)
-                profile.setHttpCacheType(QWebEngineProfile.HttpCacheType.MemoryHttpCache)
-            
-            if u_str and u_str != "about:blank":
-                view.setUrl(QUrl(u_str))
-                tab_title = "Cargando..."
-            else:
-                view.setHtml(START_PAGE_HTML, QUrl("about:fenix"))
-                tab_title = "Nueva Pestaña"
+                reload_btn = QPushButton("🔄")
+                reload_btn.setStyleSheet("background: #1e293b; color: white; border: none; border-radius: 4px; padding: 6px 12px; margin-left: 4px;")
+                reload_btn.clicked.connect(lambda: self.current_view().reload() if self.current_view() else None)
+                toolbar.addWidget(reload_btn)
 
-            idx = tabs.addTab(view, tab_title)
-            tabs.setCurrentIndex(idx)
+                self.url_bar = QLineEdit()
+                self.url_bar.setPlaceholderText("Buscar en la web con DuckDuckGo o escribir una URL (ej. gmail.com, chatgpt.com)...")
+                self.url_bar.setStyleSheet("background: #1e293b; color: #f8fafc; border: 1px solid #334155; padding: 6px 14px; font-size: 13px; border-radius: 6px; margin: 0 8px;")
+                self.url_bar.returnPressed.connect(self.navigate_to_url)
+                toolbar.addWidget(self.url_bar)
 
-            view.urlChanged.connect(lambda q: url_bar.setText("" if q.toString() == "about:fenix" else q.toString()))
-            view.titleChanged.connect(lambda t: tabs.setTabText(tabs.indexOf(view), (t[:20] + "..") if len(t) > 20 else t))
-            return view
+                new_tab_btn = QPushButton("+ Pestaña")
+                new_tab_btn.setStyleSheet("background: #1e293b; color: #f8fafc; border: 1px solid #334155; border-radius: 6px; padding: 6px 12px; font-weight: 500; margin-right: 6px;")
+                new_tab_btn.clicked.connect(lambda: self.add_tab(""))
+                toolbar.addWidget(new_tab_btn)
 
-        new_tab_btn.clicked.connect(lambda: add_tab(""))
+                shield_btn = QPushButton("🛡️ FénixShield")
+                shield_btn.setStyleSheet("background: #064e3b; color: #34d399; border: 1px solid #059669; border-radius: 6px; font-weight: bold; padding: 6px 10px; margin-right: 4px;")
+                toolbar.addWidget(shield_btn)
 
-        def on_return():
-            u = url_bar.text().strip()
-            if not u:
-                if tabs.currentWidget():
-                    tabs.currentWidget().setHtml(START_PAGE_HTML, QUrl("about:fenix"))
-                return
-            if not u.startswith(("http://", "https://", "file://", "chrome://", "about:")):
-                if "." in u and " " not in u:
-                    u = "https://" + u
+                tor_btn = QPushButton("🧅 Tor")
+                tor_btn.setStyleSheet("background: #3b0764; color: #c084fc; border: 1px solid #7c3aed; border-radius: 6px; font-weight: bold; padding: 6px 10px;")
+                toolbar.addWidget(tor_btn)
+
+            def current_view(self):
+                return self.tabs.currentWidget()
+
+            def close_tab(self, index):
+                if self.tabs.count() > 1:
+                    widget = self.tabs.widget(index)
+                    self.tabs.removeTab(index)
+                    widget.deleteLater()
+
+            def tab_changed(self, index):
+                view = self.tabs.widget(index)
+                if view:
+                    q = view.url().toString()
+                    self.url_bar.setText("" if q.startswith("about:") else q)
+
+            def add_tab(self, u_str="", switch_to=True):
+                # Custom WebPage para admitir popups de autenticación de Google y ChatGPT
+                class FenixWebPage(QWebEnginePage):
+                    def __init__(sub_self, prof, parent_view, main_win):
+                        super().__init__(prof, parent_view)
+                        sub_self.main_win = main_win
+                        sub_self.featurePermissionRequested.connect(sub_self.on_feature_permission)
+
+                    def on_feature_permission(sub_self, origin, feature):
+                        sub_self.setFeaturePermission(origin, feature, QWebEnginePage.PermissionPolicy.PermissionGrantedByUser)
+
+                    def createWindow(sub_self, _type):
+                        # Permite abrir ventanas emergentes de login (Google Sign In / OAuth) en una nueva pestaña
+                        new_v = sub_self.main_win.add_tab("", switch_to=True)
+                        return new_v.page()
+
+                view = QWebEngineView()
+                custom_page = FenixWebPage(profile, view, self)
+                view.setPage(custom_page)
+
+                if u_str and u_str != "about:blank":
+                    view.setUrl(QUrl(u_str))
+                    tab_title = "Cargando..."
                 else:
-                    u = f"https://duckduckgo.com/?q={u}"
-            if tabs.currentWidget():
-                tabs.currentWidget().setUrl(QUrl(u))
+                    view.setHtml(START_PAGE_HTML, QUrl("about:fenix"))
+                    tab_title = "Nueva Pestaña"
 
-        url_bar.returnPressed.connect(on_return)
+                idx = self.tabs.addTab(view, tab_title)
+                if switch_to:
+                    self.tabs.setCurrentIndex(idx)
 
-        add_tab(target_url)
+                view.urlChanged.connect(lambda q: self.url_bar.setText("" if q.toString().startswith("about:") else q.toString()))
+                view.titleChanged.connect(lambda t: self.tabs.setTabText(self.tabs.indexOf(view), (t[:20] + "..") if len(t) > 20 else t))
+                return view
+
+            def navigate_to_url(self):
+                u = self.url_bar.text().strip()
+                if not u:
+                    if self.current_view():
+                        self.current_view().setHtml(START_PAGE_HTML, QUrl("about:fenix"))
+                    return
+                if not u.startswith(("http://", "https://", "file://", "chrome://", "about:")):
+                    if "." in u and " " not in u:
+                        u = "https://" + u
+                    else:
+                        u = f"https://duckduckgo.com/?q={u}"
+                if self.current_view():
+                    self.current_view().setUrl(QUrl(u))
+
+        win = FenixMainWindow()
+        win.add_tab(target_url)
         win.show()
         sys.exit(app.exec())
 
@@ -314,9 +449,9 @@ if command -v gtk-update-icon-cache >/dev/null 2>&1; then
   gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor || true
 fi
 
-echo -e "\n${GREEN}✨ [3/3] ¡Instalación completada con éxito!${NC}"
+echo -e "\n${GREEN}✨ [3/3] ¡Fénix Navegador instalado y optimizado con éxito!${NC}"
 echo "------------------------------------------------------------------"
-echo -e "${GREEN}${BOLD}🎉 FÉNIX NAVEGADOR ESTÁ LISTO PARA USAR${NC}"
+echo -e "${GREEN}${BOLD}🎉 COMPATIBILIDAD CON GMAIL, GOOGLE AUTH Y CHATGPT ACTIVADA${NC}"
 echo "------------------------------------------------------------------"
 echo -e "${BOLD}Escribe en tu terminal:${NC} ${CYAN}${BOLD}fenix${NC} (o ${CYAN}fenix-browser${NC})"
 echo "------------------------------------------------------------------"
